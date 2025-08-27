@@ -81,7 +81,7 @@ resource "kubernetes_manifest" "my_app_argocd" {
       }
       project = "default"
       source = {
-        repoURL        = "https://github.com/your-username/your-repo-name.git"
+        repoURL        = "https://github.com/bhuvan-raj/cicd-for-gitops-istio-deployment.git"
         targetRevision = "main"
         path           = "manifests/my-app"
       }
