@@ -1,0 +1,61 @@
+name: GitOps CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: bubu
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to Docker Hub as root
+        run: |
+          echo ${{ secrets.DOCKERHUB_TOKEN }} | sudo docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Build and Push Docker image
+        id: build_push
+        uses: docker/build-push-action@v4
+        with:
+          context: ./app
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+
+      - name: Run Trivy scan on Docker image
+        run: |
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+          trivy image --exit-code 1 --severity HIGH,CRITICAL $IMAGE_NAME
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+        env:
+          PATH: "$PATH:/usr/local/bin"
+
+      - name: Update Kubernetes Manifest with new image tag
+        run: |
+          sed -i 's|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}|' manifests/my-app/deployment.yaml
+
+      - name: Commit and Push changes to manifests
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add manifests/my-app/deployment.yaml
+          git commit -m "Update application image to new build ${{ github.sha }}" || echo "No changes to commit"
+          git push
