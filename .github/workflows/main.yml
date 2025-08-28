@@ -8,10 +8,13 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: bubu
+    runs-on: kiran
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
+      - name: Add Terraform to PATH
+        run: echo "/usr/bin" >> $GITHUB_PATH
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -21,7 +24,7 @@ jobs:
 
       - name: Log in to Docker Hub as root
         run: |
-          echo ${{ secrets.DOCKERHUB_TOKEN }} | sudo docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
       - name: Build and Push Docker image
         id: build_push
@@ -40,6 +43,11 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
+        working-directory: ./terraform
+
+        # --- STAGE 1: Create the cluster ONLY ---
+      - name: Terraform Apply (Cluster Only)
+        run: terraform apply -auto-approve -target=null_resource.minikube_cluster
         working-directory: ./terraform
 
       - name: Terraform Apply
