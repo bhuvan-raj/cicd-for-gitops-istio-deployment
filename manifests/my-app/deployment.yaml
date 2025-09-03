@@ -19,6 +19,6 @@ spec:
     spec:
       containers:
       - name: my-app
-        image: your-docker-hub-username/my-app:v1.0.0 # This tag is updated by CI
+        image: kiran700/my-app:49f096ff65699184789f319f043c692d727fe9e7
         ports:
         - containerPort: 5000
